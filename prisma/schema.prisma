@@ -1,0 +1,23 @@
+// Prisma schema for Mastery Tracker
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Entry model for tracking practice hours
+model Entry {
+  id          String   @id @default(cuid())
+  date        String   // YYYY-MM-DD format for easy grouping
+  hours       Float
+  category    String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([date])
+  @@index([category])
+}
