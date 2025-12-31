@@ -60,15 +60,23 @@ export default function TimeRecorder({ onEntryAdded }: TimeRecorderProps) {
   }
 
   const handleStopTimer = async () => {
+    // Capture current values BEFORE any state changes
+    const currentElapsed = elapsedSeconds
+    const currentCategory = timerCategory
+    const currentDescription = timerDescription
+
+    // Stop the timer
     setIsRunning(false)
 
-    if (elapsedSeconds < 60) {
+    if (currentElapsed < 60) {
       alert('Timer must run for at least 1 minute to save.')
       return
     }
 
-    // Convert seconds to hours
-    const hoursWorked = elapsedSeconds / 3600
+    // Convert seconds to hours (with 2 decimal precision)
+    const hoursWorked = Math.round((currentElapsed / 3600) * 100) / 100
+
+    console.log('Saving timer entry:', { hoursWorked, currentCategory, currentDescription, currentElapsed })
 
     setIsSubmitting(true)
     try {
@@ -77,10 +85,12 @@ export default function TimeRecorder({ onEntryAdded }: TimeRecorderProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           hours: hoursWorked,
-          category: timerCategory,
-          description: timerDescription.trim() || `${CATEGORIES[timerCategory as keyof typeof CATEGORIES].name} session`
+          category: currentCategory,
+          description: currentDescription.trim() || `${CATEGORIES[currentCategory as keyof typeof CATEGORIES].name} session`
         })
       })
+
+      console.log('Save response:', res.status, res.ok)
 
       if (res.ok) {
         setShowSuccess(true)
@@ -88,9 +98,14 @@ export default function TimeRecorder({ onEntryAdded }: TimeRecorderProps) {
         setTimerDescription('')
         setTimeout(() => setShowSuccess(false), 2000)
         if (onEntryAdded) onEntryAdded()
+      } else {
+        const errorData = await res.json()
+        console.error('Save failed:', errorData)
+        alert('Failed to save entry. Please try again.')
       }
     } catch (error) {
       console.error('Error saving timer entry:', error)
+      alert('Error saving entry. Please check your connection.')
     } finally {
       setIsSubmitting(false)
     }

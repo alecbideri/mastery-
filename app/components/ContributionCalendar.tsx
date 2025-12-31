@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 
 // GitHub contribution green color scale
 const INTENSITY_COLORS: Record<number, string> = {
@@ -18,10 +18,24 @@ export default function ContributionCalendar() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
   const [loading, setLoading] = useState(true)
   const [hoveredDay, setHoveredDay] = useState<{ date: string; count: number; hours: number; x: number; y: number } | null>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [containerWidth, setContainerWidth] = useState(0)
 
   useEffect(() => {
     fetchCalendarData()
   }, [selectedYear])
+
+  // Measure container width for responsive sizing
+  useEffect(() => {
+    const updateWidth = () => {
+      if (containerRef.current) {
+        setContainerWidth(containerRef.current.offsetWidth)
+      }
+    }
+    updateWidth()
+    window.addEventListener('resize', updateWidth)
+    return () => window.removeEventListener('resize', updateWidth)
+  }, [loading])
 
   async function fetchCalendarData() {
     setLoading(true)
@@ -36,33 +50,36 @@ export default function ContributionCalendar() {
     }
   }
 
-  // Generate all weeks for the year - FIXED to cover entire year
+  // Generate all days of the year organized by weeks
   function generateYearGrid(): (string | null)[][] {
     const weeks: (string | null)[][] = []
 
-    // Start from Jan 1
-    const yearStart = new Date(selectedYear, 0, 1)
-    // Adjust to the Sunday before or on Jan 1
-    const startDay = yearStart.getDay()
-    const gridStart = new Date(yearStart)
-    gridStart.setDate(gridStart.getDate() - startDay)
+    const jan1 = new Date(selectedYear, 0, 1)
+    const dec31 = new Date(selectedYear, 11, 31)
 
-    // We need 53 weeks to cover the full year
-    for (let w = 0; w < 53; w++) {
+    const jan1DayOfWeek = jan1.getDay()
+    const startDate = new Date(jan1)
+    startDate.setDate(startDate.getDate() - jan1DayOfWeek)
+
+    const dec31DayOfWeek = dec31.getDay()
+    const endDate = new Date(dec31)
+    endDate.setDate(endDate.getDate() + (6 - dec31DayOfWeek))
+
+    const currentDate = new Date(startDate)
+
+    while (currentDate <= endDate) {
       const week: (string | null)[] = []
 
       for (let d = 0; d < 7; d++) {
-        const currentDate = new Date(gridStart)
-        currentDate.setDate(gridStart.getDate() + (w * 7) + d)
-
         if (currentDate.getFullYear() === selectedYear) {
+          const year = currentDate.getFullYear()
           const month = String(currentDate.getMonth() + 1).padStart(2, '0')
           const day = String(currentDate.getDate()).padStart(2, '0')
-          const dateStr = `${selectedYear}-${month}-${day}`
-          week.push(dateStr)
+          week.push(`${year}-${month}-${day}`)
         } else {
           week.push(null)
         }
+        currentDate.setDate(currentDate.getDate() + 1)
       }
 
       weeks.push(week)
@@ -91,19 +108,27 @@ export default function ContributionCalendar() {
 
   const yearGrid = generateYearGrid()
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  const today = new Date().toISOString().split('T')[0]
+  const totalWeeks = yearGrid.length
+
+  // Fixed cell size for consistency
+  const cellSize = 11
+  const cellGap = 3
+  const dayLabelWidth = 28
+
+  // Calculate if we need to scroll (for small screens)
+  const minGridWidth = totalWeeks * (cellSize + cellGap) + dayLabelWidth
+  const needsScroll = containerWidth > 0 && containerWidth < minGridWidth
 
   // Calculate total stats
   const totalEntries = Object.values(calendarData).reduce((sum, d) => sum + d.count, 0)
   const totalHours = Object.values(calendarData).reduce((sum, d) => sum + d.hours, 0)
   const activeDays = Object.keys(calendarData).length
 
-  // Debug: log calendar data
-  console.log('Calendar data keys:', Object.keys(calendarData))
-
   return (
-    <div className="glass-card" style={{ padding: '24px' }}>
+    <div className="glass-card" style={{ padding: '20px' }}>
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
         <div>
           <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '4px' }}>Contribution Calendar</h3>
           <div style={{ display: 'flex', gap: '8px', fontSize: '0.75rem', color: 'rgba(255,255,255,0.6)' }}>
@@ -123,7 +148,7 @@ export default function ContributionCalendar() {
           >
             ←
           </button>
-          <span style={{ fontWeight: 600, minWidth: '4rem', textAlign: 'center' }}>{selectedYear}</span>
+          <span style={{ fontWeight: 600, minWidth: '3rem', textAlign: 'center' }}>{selectedYear}</span>
           <button
             onClick={() => setSelectedYear(y => y + 1)}
             style={{ background: '#333', border: '1px solid #3A3A3A', color: 'white', padding: '4px 8px', cursor: 'pointer' }}
@@ -134,24 +159,38 @@ export default function ContributionCalendar() {
         </div>
       </div>
 
-      {/* Calendar Grid */}
-      <div style={{ overflowX: 'auto' }}>
+      {/* Calendar Grid - scrollable container */}
+      <div
+        ref={containerRef}
+        style={{
+          overflowX: 'auto',
+          overflowY: 'hidden',
+          paddingBottom: '8px'
+        }}
+      >
         {loading ? (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '120px', color: 'rgba(255,255,255,0.6)' }}>
             Loading...
           </div>
         ) : (
-          <>
+          <div style={{
+            minWidth: `${minGridWidth}px`,
+            width: needsScroll ? `${minGridWidth}px` : '100%'
+          }}>
             {/* Month labels */}
-            <div style={{ display: 'flex', marginBottom: '4px', paddingLeft: '28px' }}>
+            <div style={{
+              display: 'flex',
+              marginBottom: '4px',
+              marginLeft: `${dayLabelWidth}px`
+            }}>
               {months.map((month) => (
                 <span
                   key={month}
                   style={{
                     fontSize: '0.65rem',
-                    color: 'rgba(255,255,255,0.6)',
-                    width: `${100 / 12}%`,
-                    minWidth: '40px'
+                    color: 'rgba(255,255,255,0.5)',
+                    flex: 1,
+                    textAlign: 'left'
                   }}
                 >
                   {month}
@@ -159,45 +198,78 @@ export default function ContributionCalendar() {
               ))}
             </div>
 
-            {/* Main grid */}
-            <div style={{ display: 'flex', gap: '2px' }}>
-              {/* Day labels */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', paddingRight: '4px', width: '24px' }}>
-                <span style={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.6)', height: '11px' }}></span>
-                <span style={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.6)', height: '11px' }}>Mon</span>
-                <span style={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.6)', height: '11px' }}></span>
-                <span style={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.6)', height: '11px' }}>Wed</span>
-                <span style={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.6)', height: '11px' }}></span>
-                <span style={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.6)', height: '11px' }}>Fri</span>
-                <span style={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.6)', height: '11px' }}></span>
+            {/* Grid with day labels */}
+            <div style={{ display: 'flex' }}>
+              {/* Day labels column */}
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                width: `${dayLabelWidth}px`,
+                flexShrink: 0
+              }}>
+                {['', 'Mon', '', 'Wed', '', 'Fri', ''].map((day, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      height: `${cellSize}px`,
+                      marginBottom: `${cellGap}px`,
+                      fontSize: '0.55rem',
+                      color: 'rgba(255,255,255,0.4)',
+                      lineHeight: `${cellSize}px`
+                    }}
+                  >
+                    {day}
+                  </div>
+                ))}
               </div>
 
-              {/* Weeks */}
-              <div style={{ display: 'flex', gap: '3px' }}>
+              {/* Weeks grid */}
+              <div style={{
+                display: 'flex',
+                gap: `${cellGap}px`,
+                flex: 1,
+                justifyContent: needsScroll ? 'flex-start' : 'space-between'
+              }}>
                 {yearGrid.map((week, weekIdx) => (
-                  <div key={weekIdx} style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                  <div
+                    key={weekIdx}
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: `${cellGap}px`,
+                      flexShrink: 0
+                    }}
+                  >
                     {week.map((date, dayIdx) => {
                       if (!date) {
-                        return <div key={dayIdx} style={{ width: '11px', height: '11px', backgroundColor: 'transparent' }} />
+                        return (
+                          <div
+                            key={dayIdx}
+                            style={{
+                              width: `${cellSize}px`,
+                              height: `${cellSize}px`,
+                              backgroundColor: 'transparent'
+                            }}
+                          />
+                        )
                       }
 
                       const data = calendarData[date] || { count: 0, hours: 0 }
                       const level = getIntensityLevel(data.count)
                       const color = INTENSITY_COLORS[level]
-                      const isToday = date === new Date().toISOString().split('T')[0]
+                      const isToday = date === today
 
                       return (
                         <div
                           key={date}
                           style={{
-                            width: '11px',
-                            height: '11px',
+                            width: `${cellSize}px`,
+                            height: `${cellSize}px`,
                             backgroundColor: color,
                             cursor: 'pointer',
                             outline: isToday ? '2px solid #667eea' : 'none',
                             outlineOffset: '1px'
                           }}
-                          title={`${date}: ${data.count} entries, ${data.hours}h`}
                           onMouseEnter={(e) => {
                             const rect = e.currentTarget.getBoundingClientRect()
                             setHoveredDay({
@@ -218,17 +290,17 @@ export default function ContributionCalendar() {
             </div>
 
             {/* Legend */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px', marginTop: '12px', fontSize: '0.65rem', color: 'rgba(255,255,255,0.6)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px', marginTop: '12px', fontSize: '0.6rem', color: 'rgba(255,255,255,0.5)' }}>
               <span>Less</span>
               {[0, 1, 2, 3, 4].map(level => (
                 <div
                   key={level}
-                  style={{ width: '11px', height: '11px', backgroundColor: INTENSITY_COLORS[level] }}
+                  style={{ width: `${cellSize}px`, height: `${cellSize}px`, backgroundColor: INTENSITY_COLORS[level] }}
                 />
               ))}
               <span>More</span>
             </div>
-          </>
+          </div>
         )}
       </div>
 
@@ -240,7 +312,7 @@ export default function ContributionCalendar() {
             left: hoveredDay.x,
             top: hoveredDay.y,
             transform: 'translate(-50%, -100%)',
-            background: '#333',
+            background: '#222',
             border: '1px solid #3A3A3A',
             padding: '8px 12px',
             fontSize: '0.75rem',
@@ -249,7 +321,7 @@ export default function ContributionCalendar() {
             gap: '2px',
             zIndex: 1000,
             pointerEvents: 'none',
-            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.5)'
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5)'
           }}
         >
           <strong style={{ color: 'white' }}>{formatDate(hoveredDay.date)}</strong>
