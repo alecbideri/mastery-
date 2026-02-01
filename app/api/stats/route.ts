@@ -59,6 +59,38 @@ export async function GET() {
     const activeDays = uniqueDates.length
     const dailyAverage = activeDays > 0 ? totalHours / activeDays : 0
 
+    // Time period calculations (week, month, year)
+    const now = new Date()
+    const currentYear = now.getFullYear()
+
+    // Get start of current week (Monday)
+    const startOfWeek = new Date(now)
+    const dayOfWeek = now.getDay()
+    const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1 // Adjust for Monday start
+    startOfWeek.setDate(now.getDate() - diff)
+    startOfWeek.setHours(0, 0, 0, 0)
+    const weekStartStr = startOfWeek.toISOString().split('T')[0]
+
+    // Get start of current month
+    const startOfMonth = new Date(currentYear, now.getMonth(), 1)
+    const monthStartStr = startOfMonth.toISOString().split('T')[0]
+
+    // Get start of current year (resets each year, starting from 2026)
+    const yearStartStr = `${currentYear}-01-01`
+
+    // Calculate hours for each period
+    const weeklyHours = entries
+      .filter(e => e.date >= weekStartStr)
+      .reduce((sum, e) => sum + e.hours, 0)
+
+    const monthlyHours = entries
+      .filter(e => e.date >= monthStartStr)
+      .reduce((sum, e) => sum + e.hours, 0)
+
+    const yearlyHours = entries
+      .filter(e => e.date >= yearStartStr && e.date.startsWith(String(currentYear)))
+      .reduce((sum, e) => sum + e.hours, 0)
+
     return NextResponse.json({
       totalHours,
       categoryBreakdown,
@@ -67,7 +99,14 @@ export async function GET() {
       streak,
       dailyAverage,
       activeDays,
-      totalEntries: entries.length
+      totalEntries: entries.length,
+      // Time period stats
+      weeklyHours,
+      monthlyHours,
+      yearlyHours,
+      currentYear,
+      currentWeekStart: weekStartStr,
+      currentMonthStart: monthStartStr
     })
   } catch (error) {
     console.error('Stats API error:', error)

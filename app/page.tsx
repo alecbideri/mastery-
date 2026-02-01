@@ -9,6 +9,7 @@ import RecentActivity from './components/RecentActivity'
 import StatsPanel from './components/StatsPanel'
 import AchievementBadges from './components/AchievementBadges'
 import ContributionCalendar from './components/ContributionCalendar'
+import TimePeriodStats from './components/TimePeriodStats'
 
 export default function Home() {
   const [refreshKey, setRefreshKey] = useState(0)
@@ -32,6 +33,9 @@ export default function Home() {
 
         {/* Achievements */}
         <AchievementBadges />
+
+        {/* Time Period Progress (Week/Month/Year) */}
+        <TimePeriodStats />
 
         {/* Stats + Category Breakdown */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
