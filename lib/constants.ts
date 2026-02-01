@@ -27,6 +27,13 @@ export const CATEGORIES = {
     icon: '🔒',
     gradient: 'from-emerald-400 to-green-500',
     color: '#11998e'
+  },
+  sports: {
+    id: 'sports',
+    name: 'Sports',
+    icon: '⚽',
+    gradient: 'from-orange-400 to-amber-500',
+    color: '#f97316'
   }
 } as const
 
