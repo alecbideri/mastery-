@@ -119,7 +119,7 @@ export default function TimePeriodStats() {
 
       {/* Reset Notice */}
       <div className="mt-6 text-center text-sm text-white/30">
-        <span>📌 Year counter resets on Jan 1st each year (started 2026)</span>
+        <span>📌 Week resets every Sunday • Month resets on 1st • Year resets Jan 1st</span>
       </div>
     </div>
   )

@@ -63,16 +63,16 @@ export async function GET() {
     const now = new Date()
     const currentYear = now.getFullYear()
 
-    // Get start of current week (Monday)
+    // Get start of current week (Sunday)
     const startOfWeek = new Date(now)
-    const dayOfWeek = now.getDay()
-    const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1 // Adjust for Monday start
-    startOfWeek.setDate(now.getDate() - diff)
+    const dayOfWeek = now.getDay() // Sunday = 0, Saturday = 6
+    startOfWeek.setDate(now.getDate() - dayOfWeek) // Go back to Sunday
     startOfWeek.setHours(0, 0, 0, 0)
     const weekStartStr = startOfWeek.toISOString().split('T')[0]
 
-    // Get start of current month
+    // Get start of current calendar month (1st of the month)
     const startOfMonth = new Date(currentYear, now.getMonth(), 1)
+    startOfMonth.setHours(0, 0, 0, 0)
     const monthStartStr = startOfMonth.toISOString().split('T')[0]
 
     // Get start of current year (resets each year, starting from 2026)
